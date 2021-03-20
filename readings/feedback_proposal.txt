@@ -1,0 +1,60 @@
+student
+Number 	problem statement:
+topic, RQ, objective
+(max 2 points) 	
+	discussion literature
+(max 2 points) 	
+	material, dataset
+(max 1 point) 	
+	methodology
+(max 2 points) 	
+	evaluation
+(max 1.5 points) 	
+	bibliography
+(max 0.5 points) 	
+	layout, writing, etc
+(max 1 point)
+s3794717
+s3651258
+S2976129 	Problem statement and topic OK.
+
+RQ a bit vague
+
+Motivation for the task OK but not included for the dataset. 	
+	Overall clear but papers about classifiers and their application to sentiment classification are mixed in the discussion. The discussion of the literature could be organised better.
+
+Good to connect the discussion to your choices, e.g. about KNN. 	
+	Clear. In the project report you can include a table that shows how many reviews there are, average rating, etc. Maybe even show 1 example of positive and 1 of negative reviews. 	
+	Overall clear. It just adds word embeddings to what done in assingment 1. The addition of word embeddings is well motivated. Being a group of 3 you could do something extra. Some ideas:
+- Cast the problem as regression, so you predict a real number.
+- Use additional non-textual features in the classifier, e.g. park, nationality.
+
+The motivation of the classifiers could be more explicit, why SVM and KNN?
+
+Since you split the data, it would be better to have not only train and test but also dev. 	
+	Overall clear.
+
+There is no analysis we could be insightful. E.g. look at missclassified reviews for which the classifier is very confident and very unconfident.
+
+Establishing a performance goal based on another dataset is problematic. Since the dataset is public you could compare to previous classifiers on the dataset you use.
+
+movie reviews? 	
+	Overall good. A few minor issues:
+- The paper from Basari et al. (2013) uses → Basari et al. (2013) use
+by Kalaivani and
+Shunmuganathan (2013); - Basari et al. (2013); Se et al. (2016) → by Kalaivani and Shunmuganathan (2013), Basari et al. (2013) and Se et al. (2016)
+- Se et al. (2016) states → Se et al. (2016) state 	
+	the title could be more informative
+
+Some parts could be better. E.g.
+- has been increasing attention → has received increasing attention
+- makes the greatest
+accuracy outcomes → achieves the highest accuracy.
+- be a detrimental → be detrimental
+- lower → lowercase
+
+If you introduced an acronym (e.g. SVM) use the acronym afterwards and not the full form.
+
+42.000 → 42,000
+
+“Good enough” sounds too vague and informal
