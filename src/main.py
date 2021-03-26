@@ -2,16 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 File name:   main.py
-
 Authors:     Joëlle Bosman (s3794717)
              Larisa Bulbaai (s3651258)
              Wessel Poelman (s2976129)
-
 Date:        25-03-2021
-
 Description: This script reads, cleans and splits the Disneyland reviews
              dataset used for training the classification models.
-
 Usage: python <path_to_disneyland_dataset.csv>
 """
 import csv
@@ -21,11 +17,14 @@ import random
 import sys
 from collections import defaultdict
 from string import punctuation
+import gensim
 
 from nltk import download, word_tokenize
 from nltk.classify import accuracy
 from nltk.classify.scikitlearn import SklearnClassifier
 from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer 
+from nltk.stem import WordNetLemmatizer
 from nltk.metrics import precision, recall
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import LinearSVC
@@ -55,7 +54,8 @@ def create_dataset(filepath, use_cache=False):
     # checking a list or string O(n).
     punct_translation = str.maketrans('', '', punctuation)
     stoplist = set(stopwords.words('english'))
-
+    ps = PorterStemmer() 
+    lem = WordNetLemmatizer()
     with open(filepath, 'r', encoding='latin-1') as f:
         reader = csv.reader(f, delimiter=",", )
 
@@ -85,9 +85,14 @@ def create_dataset(filepath, use_cache=False):
                 .strip()
 
             tokenized = [
-                token for token in word_tokenize(review_text)
+                ps.stem(token) for token in word_tokenize(review_text)
                 if token not in stoplist
-            ]
+            ] # Wordstemming -> SVM accuracy 0.815284 &  KNN accuracy 0.783638
+
+            '''tokenized = [
+                 lem.lemmatize(token) for token in word_tokenize(review_text)
+                if token not in stoplist
+            ]''' # LEMMATIZATION -> SVM accuracy 0.810830 &  KNN accuracy 0.786217
 
             bag_of_words = ({t: True for t in tokenized}, rating_label)
 
@@ -233,7 +238,6 @@ def main():
         -   Andere features uit de dataset toevoegen en testen wat betere
             scores oplevert
         -   Experimenteren met parameters van modellen
-
     '''
 
 
