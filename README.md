@@ -7,8 +7,13 @@ Final project for the course Machine Learning Project
 - [ ] Modellen trainen, experimenteren met features en parameters. (W) 
 - [ ] Evaluatie, performance testen. (L)
 - [ ] Interpretatie van goede en foute resultaten modellen. (L)
-- [ ] Voorbeeldanalyse van resultaten model (bijvoorbeeld scores per periode in het jaar, correlatie etc.) (W)
+- [ ] Voorbeeldanalyse van resultaten model (bijvoorbeeld scores per periode in het jaar, correlatie, nieuwe reviews die niet in de dataset zitten etc.) (W)
 - [x] Train, test en dev set van de data. (J)
+
+## TODO presentatie
+- [ ] Implementatie (w)
+- [ ] Artikelen + vergelijking SVM & KNN (L)
+- [ ] Voorbeeldanalyse nieuwe reviews (J)
 
 ## Als we tijd hebben
 - [ ] Regression voor de ratings.
