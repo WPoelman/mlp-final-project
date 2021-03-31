@@ -17,15 +17,17 @@ import random
 import sys
 from collections import defaultdict
 from string import punctuation
-import gensim
 
+import spacy
 from nltk import download, word_tokenize
 from nltk.classify import accuracy
 from nltk.classify.scikitlearn import SklearnClassifier
 from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer 
-from nltk.stem import WordNetLemmatizer
 from nltk.metrics import precision, recall
+from nltk.stem import PorterStemmer, WordNetLemmatizer
+from sklearn.dummy import DummyClassifier
+from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score,
+                             precision_score, recall_score)
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import LinearSVC
 
@@ -34,6 +36,7 @@ download('stopwords')
 
 # Program constants
 CACHE_PATH = 'dataset_cache.pickle'
+SPACY_MODEL = 'en_core_web_md'
 LABELS = ['positive', 'indifferent', 'negative']
 
 
@@ -48,14 +51,18 @@ def create_dataset(filepath, use_cache=False):
             print('Used cached dataset!')
             return pickle.load(cache)
 
+    nlp = spacy.load(SPACY_MODEL, disable=['tagger', 'ner'])
+
     dataset = []
 
     # The translation and set are both a lot faster O(1) when compared to
     # checking a list or string O(n).
     punct_translation = str.maketrans('', '', punctuation)
     stoplist = set(stopwords.words('english'))
-    ps = PorterStemmer() 
-    lem = WordNetLemmatizer()
+
+    # ps = PorterStemmer()
+    # lem = WordNetLemmatizer()
+
     with open(filepath, 'r', encoding='latin-1') as f:
         reader = csv.reader(f, delimiter=",", )
 
@@ -85,19 +92,32 @@ def create_dataset(filepath, use_cache=False):
                 .strip()
 
             tokenized = [
-                ps.stem(token) for token in word_tokenize(review_text)
-                if token not in stoplist
-            ] # Wordstemming -> SVM accuracy 0.815284 &  KNN accuracy 0.783638
+                # Wordstemming -> SVM accuracy 0.815284 &  KNN accuracy 0.783638
+                # ps.stem(token) for token in word_tokenize(review_text)
 
-            '''tokenized = [
-                 lem.lemmatize(token) for token in word_tokenize(review_text)
-                if token not in stoplist
-            ]''' # LEMMATIZATION -> SVM accuracy 0.810830 &  KNN accuracy 0.786217
+                # LEMMATIZATION -> SVM accuracy 0.810830 &  KNN accuracy 0.786217
+                # lem.lemmatize(token) for token in word_tokenize(review_text)
+                
+                token for token in word_tokenize(review_text)
 
-            bag_of_words = ({t: True for t in tokenized}, rating_label)
+                if token not in stoplist
+            ]
+
+            # bag_of_words = ({t: True for t in tokenized}, rating_label)
 
             dataset.append(
-                (tokenized, bag_of_words, rating_label, row[2], row[3], row[5])
+                {
+                    # 'bag_of_words': bag_of_words,
+                    # 'review_text': row[4],
+                    'tokenized': tokenized,
+                    # Change rating_label with rating to use non-grouped 
+                    # ratings, i.e. the 1-5 ratings
+                    'rating_label': rating_label,
+                    'year_month': row[2],
+                    'reviewer_location': row[3],
+                    'disneyland_location': row[5],
+                    'doc_vector': nlp(' '.join(tokenized)).vector
+                }
             )
 
     with open(CACHE_PATH, 'wb') as p:
@@ -210,6 +230,19 @@ def train_knn(train_feats):
     return SklearnClassifier(KNeighborsClassifier()).train(train_feats)
 
 
+def evaluation_sklearn_model(model, test_examples, test_labels):
+    y_pred = model.predict(test_examples)
+    prec = precision_score(test_labels, y_pred, average=None)
+    rec = recall_score(test_labels, y_pred, average=None)
+    acc = accuracy_score(test_labels, y_pred)
+    f = f1_score(test_labels, y_pred, average=None)
+
+    print(f"Accuracy: {acc}")
+    print(f"Precision: {prec}\nRecall: {rec}\nF-score: {f}")
+    print("Confusion matrix:")
+    print(confusion_matrix(test_labels, y_pred))
+
+
 def main():
     try:
         file_path = sys.argv[1]
@@ -222,23 +255,36 @@ def main():
     dataset = create_dataset(file_path, True)
     train_feats, test_feats, dev_feats = split_train_test(dataset)
 
+    only_vec_train = [i['doc_vector'] for i in train_feats]
+    only_label_train = [j['rating_label'] for j in train_feats]
+
+    only_vec_test = [i['doc_vector'] for i in test_feats]
+    only_label_test = [j['rating_label'] for j in test_feats]
+
+    print('\n-- BASELINE --\n')
+    baseline = DummyClassifier()
+    baseline.fit(only_vec_train, only_label_train)
+    evaluation_sklearn_model(baseline, only_vec_test, only_label_test)
+
+    print('\n-- SVM --\n')
+    svm = LinearSVC()
+    svm.fit(only_vec_train, only_label_train)
+    evaluation_sklearn_model(svm, only_vec_test, only_label_test)
+
+    print('\n-- KNN --\n')
+    knn = KNeighborsClassifier()
+    knn.fit(only_vec_train, only_label_train)
+    evaluation_sklearn_model(knn, only_vec_test, only_label_test)
+
     # First only use 'bag of words' as a feature
-    only_bow_test = [item[1] for item in test_feats]
-    only_bow_train = [item[1] for item in train_feats]
+    # only_bow_test = [item[1] for item in test_feats]
+    # only_bow_train = [item[1] for item in train_feats]
 
-    svm_classifier = train_svm(only_bow_train)
-    evaluation(svm_classifier, only_bow_test, LABELS)
+    # svm_classifier = train_svm(only_bow_train)
+    # evaluation(svm_classifier, only_bow_test, LABELS)
 
-    knn_classifier = train_knn(only_bow_train)
-    evaluation(knn_classifier, only_bow_test, LABELS)
-
-    ''' TODO:
-        -   Word embeddings toevoegen en aan training data toevoegen en / of
-            los trainen en vergelijken
-        -   Andere features uit de dataset toevoegen en testen wat betere
-            scores oplevert
-        -   Experimenteren met parameters van modellen
-    '''
+    # knn_classifier = train_knn(only_bow_train)
+    # evaluation(knn_classifier, only_bow_test, LABELS)
 
 
 if __name__ == "__main__":
