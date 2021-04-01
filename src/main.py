@@ -5,7 +5,7 @@ File name:   main.py
 Authors:     Joëlle Bosman (s3794717)
              Larisa Bulbaai (s3651258)
              Wessel Poelman (s2976129)
-Date:        25-03-2021
+Date:        01-04-2021
 Description: This script reads, cleans and splits the Disneyland reviews
              dataset used for training the classification models.
 Usage: python <path_to_disneyland_dataset.csv>
@@ -30,9 +30,11 @@ from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score,
                              precision_score, recall_score)
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import LinearSVC
+from sklearn.tree import DecisionTreeClassifier
 
-# Download the nltk stopwords corpus if needed
+# Download the nltk stopwords and wordnet corpus if needed
 download('stopwords')
+download('wordnet')
 
 # Program constants
 CACHE_PATH = 'dataset_cache.pickle'
@@ -61,7 +63,7 @@ def create_dataset(filepath, use_cache=False):
     stoplist = set(stopwords.words('english'))
 
     # ps = PorterStemmer()
-    # lem = WordNetLemmatizer()
+    lem = WordNetLemmatizer()
 
     with open(filepath, 'r', encoding='latin-1') as f:
         reader = csv.reader(f, delimiter=",", )
@@ -91,17 +93,23 @@ def create_dataset(filepath, use_cache=False):
                 .lower() \
                 .strip()
 
-            tokenized = [
+            tokenized = []
+            for token in word_tokenize(review_text):
+                lemmatized = lem.lemmatize(token)
+                if lemmatized not in stoplist:
+                    tokenized.append(lemmatized)
+
+            # tokenized = [
                 # Wordstemming -> SVM accuracy 0.815284 &  KNN accuracy 0.783638
                 # ps.stem(token) for token in word_tokenize(review_text)
 
                 # LEMMATIZATION -> SVM accuracy 0.810830 &  KNN accuracy 0.786217
-                # lem.lemmatize(token) for token in word_tokenize(review_text)
-                
-                token for token in word_tokenize(review_text)
+                #  for token in word_tokenize(review_text)
 
-                if token not in stoplist
-            ]
+                # token for token in word_tokenize(review_text)
+
+            #     if token not in stoplist
+            # ]
 
             # bag_of_words = ({t: True for t in tokenized}, rating_label)
 
@@ -110,7 +118,7 @@ def create_dataset(filepath, use_cache=False):
                     # 'bag_of_words': bag_of_words,
                     # 'review_text': row[4],
                     'tokenized': tokenized,
-                    # Change rating_label with rating to use non-grouped 
+                    # Change rating_label with rating to use non-grouped
                     # ratings, i.e. the 1-5 ratings
                     'rating_label': rating_label,
                     'year_month': row[2],
@@ -232,10 +240,10 @@ def train_knn(train_feats):
 
 def evaluation_sklearn_model(model, test_examples, test_labels):
     y_pred = model.predict(test_examples)
-    prec = precision_score(test_labels, y_pred, average=None)
-    rec = recall_score(test_labels, y_pred, average=None)
+    prec = precision_score(test_labels, y_pred, average='macro')
+    rec = recall_score(test_labels, y_pred, average='macro')
     acc = accuracy_score(test_labels, y_pred)
-    f = f1_score(test_labels, y_pred, average=None)
+    f = f1_score(test_labels, y_pred, average='macro')
 
     print(f"Accuracy: {acc}")
     print(f"Precision: {prec}\nRecall: {rec}\nF-score: {f}")
@@ -275,6 +283,11 @@ def main():
     knn = KNeighborsClassifier()
     knn.fit(only_vec_train, only_label_train)
     evaluation_sklearn_model(knn, only_vec_test, only_label_test)
+
+    print('\n-- Decision Tree --\n')
+    dtc = DecisionTreeClassifier()
+    dtc.fit(only_vec_train, only_label_train)
+    evaluation_sklearn_model(dtc, only_vec_test, only_label_test)
 
     # First only use 'bag of words' as a feature
     # only_bow_test = [item[1] for item in test_feats]
