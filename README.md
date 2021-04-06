@@ -1,6 +1,12 @@
 # mlp-final-project
 Final project for the course Machine Learning Project
 
+## Usage
+- Install the dependencies using `pip install -r requirements.txt`
+- Unzip the dataset
+- Run `main.py <path to dataset>`
+
+When running the script, a cache file of the dataset `dataset_cache.pickle` is created in order to reduce the loading times for subsequent times the script is ran.
 ## TODO (van toepassing op systeem, verslag en presentatie)
 - [x] Alle informatie uit de dataset inlezen. (J)
 - [x] Dataset schoonmaken + word-embeddings maken. (W)
