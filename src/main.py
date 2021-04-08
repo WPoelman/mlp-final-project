@@ -1,30 +1,33 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 """
-File name:   main.py
-Authors:     Joëlle Bosman (s3794717)
+Filename:    main.py
+Authors:     Joëlle Bosman  (s3794717)
              Larisa Bulbaai (s3651258)
              Wessel Poelman (s2976129)
-Date:        01-04-2021
-Description: This script reads, cleans and splits the Disneyland reviews
-             dataset used for training the classification models.
-Usage: python <path_to_disneyland_dataset.csv>
+Date:        08-04-2021
+Repository:  https://github.com/WPoelman/mlp-final-project
+Dataset:     https://www.kaggle.com/arushchillar/disneyland-reviews
+Description: This script reads, cleans and splits a dataset of Disneyland
+             reviews, with this data it trains en tests classification models.
+             Note: this is the final 'best' system without all experimentation
+             steps. This is why some things are not used or ignored. For more
+             information about the experimentation, see the report or the
+             (rather messy) notebook in the above mentioned repository.
+
+Usage:       python <path_to_disneyland_dataset.csv>
 """
 import csv
 import os
 import pickle
 import random
 import sys
-from collections import defaultdict
 from string import punctuation
 
 import spacy
 from nltk import download, word_tokenize
-from nltk.classify import accuracy
-from nltk.classify.scikitlearn import SklearnClassifier
 from nltk.corpus import stopwords
-from nltk.metrics import precision, recall
-from nltk.stem import PorterStemmer, WordNetLemmatizer
+from nltk.stem import WordNetLemmatizer
 from sklearn.dummy import DummyClassifier
 from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score,
                              precision_score, recall_score)
@@ -32,7 +35,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 
-# Download the nltk stopwords and wordnet corpus if needed
+# Downloads the nltk stopwords and wordnet corpus for lemmatization (if needed)
 download('stopwords')
 download('wordnet')
 
@@ -53,16 +56,17 @@ def create_dataset(filepath, use_cache=False):
             print('Used cached dataset!')
             return pickle.load(cache)
 
+    print('Loading spacy model...')
     nlp = spacy.load(SPACY_MODEL, disable=['tagger', 'ner'])
 
     dataset = []
 
-    # The translation and set are both a lot faster O(1) when compared to
-    # checking a list or string O(n).
-    punct_translation = str.maketrans('', '', punctuation)
+    # The translation and set are both a lot faster when compared to checking
+    # a list or string.
+    # punct_translation = str.maketrans('', '', punctuation)
     stoplist = set(stopwords.words('english'))
 
-    # ps = PorterStemmer()
+    print('Loading lemmatizer...')
     lem = WordNetLemmatizer()
 
     with open(filepath, 'r', encoding='latin-1') as f:
@@ -78,7 +82,9 @@ def create_dataset(filepath, use_cache=False):
         #   3 -> location of reviewer
         #   4 -> review text
         #   5 -> Disneyland location
-        for row in reader:
+        for index, row in enumerate(reader):
+            if index != 0 and index % 1000 == 0:
+                print(f'Working... {index} rows done so far')
             rating = int(row[1])
 
             if rating < 3:
@@ -88,42 +94,29 @@ def create_dataset(filepath, use_cache=False):
             else:
                 rating_label = 'positive'
 
-            review_text = row[4] \
-                .translate(punct_translation) \
-                .lower() \
-                .strip()
+            review_text = row[4].lower().strip()
 
             tokenized = []
+
             for token in word_tokenize(review_text):
                 lemmatized = lem.lemmatize(token)
                 if lemmatized not in stoplist:
                     tokenized.append(lemmatized)
 
-            # tokenized = [
-                # Wordstemming -> SVM accuracy 0.815284 &  KNN accuracy 0.783638
-                # ps.stem(token) for token in word_tokenize(review_text)
+            year, month = None, None
 
-                # LEMMATIZATION -> SVM accuracy 0.810830 &  KNN accuracy 0.786217
-                #  for token in word_tokenize(review_text)
-
-                # token for token in word_tokenize(review_text)
-
-            #     if token not in stoplist
-            # ]
-
-            # bag_of_words = ({t: True for t in tokenized}, rating_label)
+            if row[2] != 'missing':
+                # 2019-4 for example
+                [year, month] = row[2].split('-')
 
             dataset.append(
                 {
-                    # 'bag_of_words': bag_of_words,
-                    # 'review_text': row[4],
                     'tokenized': tokenized,
-                    # Change rating_label with rating to use non-grouped
-                    # ratings, i.e. the 1-5 ratings
                     'rating_label': rating_label,
-                    'year_month': row[2],
+                    'year': year,
+                    'month': month,
                     'reviewer_location': row[3],
-                    'disneyland_location': row[5],
+                    'disneyland_location': row[5].replace('Disneyland_', ''),
                     'doc_vector': nlp(' '.join(tokenized)).vector
                 }
             )
@@ -146,96 +139,11 @@ def split_train_test(feats, split=0.8):
     test_feats = feats[cutoff:split]
     dev_feats = feats[split:]
 
-    print("  Training set: %i" % len(train_feats))
-    print("  Test set: %i" % len(test_feats))
-    print("  Development set: %i" % len(dev_feats))
+    print(f"  Training set: {len(train_feats)}")
+    print(f"  Test set: {len(test_feats)}")
+    print(f"  Development set: {len(dev_feats)}")
 
     return train_feats, test_feats, dev_feats
-
-
-def precision_recall(classifier, testfeats):
-    ''' Taken from classification.py from assignment 1.
-        Calculates precision and recall for a given classifier.
-    '''
-    refsets = defaultdict(set)
-    testsets = defaultdict(set)
-
-    for i, (feats, label) in enumerate(testfeats):
-        refsets[label].add(i)
-        observed = classifier.classify(feats)
-        testsets[observed].add(i)
-
-    precisions = {}
-    recalls = {}
-
-    for label in classifier.labels():
-        precisions[label] = precision(refsets[label], testsets[label])
-        recalls[label] = recall(refsets[label], testsets[label])
-
-    return precisions, recalls
-
-
-def calculate_f(precisions, recalls):
-    ''' Taken from assignment 1 from Wessel.
-        Calculates the F-score for given a category given the precision and
-        recall scores for that category.
-    '''
-    f_measures = {}
-
-    for category in precisions.keys():
-        # This is done to prevent the program from crashing when
-        # no measure is provided for a particular category
-        if not precisions[category] or not recalls[category]:
-            f_measures[category] = None
-            continue
-
-        f_measures[category] = round(
-            2 * ((precisions[category] * recalls[category]) /
-                 (precisions[category] + recalls[category])), 6)
-
-    return f_measures
-
-
-def evaluation(classifier, test_feats, categories):
-    ''' Taken from assignment 1, calculates and prints evaluation measures '''
-
-    print("\nEvaluation...")
-    print("  Accuracy: %f" % accuracy(classifier, test_feats))
-    precisions, recalls = precision_recall(classifier, test_feats)
-    f_measures = calculate_f(precisions, recalls)
-
-    print(" |-----------|-----------|-----------|-----------|")
-    print(" |%-11s|%-11s|%-11s|%-11s|" %
-          ("category", "precision", "recall", "F-measure"))
-    print(" |-----------|-----------|-----------|-----------|")
-    for category in categories:
-        if precisions[category] is None:
-            print(" |%-11s|%-11s|%-11s|%-11s|" % (category, "NA", "NA", "NA"))
-        else:
-            print(" |%-11s|%-11f|%-11f|%-11s|" %
-                  (category,
-                   precisions[category],
-                   recalls[category],
-                   f_measures[category])
-                  )
-    print(" |-----------|-----------|-----------|-----------|")
-
-
-def train_svm(train_feats):
-    ''' Trains and returns a linear SVM classifier '''
-    print('\nTraining SVM classifier...')
-
-    # dual=False makes this considerably faster and is appropriate since the
-    # dataset has more samples than features. Either way it should get roughly
-    # the same result.
-    return SklearnClassifier(LinearSVC(dual=False)).train(train_feats)
-
-
-def train_knn(train_feats):
-    ''' Trains and returns a KNN classifier '''
-    print('\nTraining KNN classifier...')
-
-    return SklearnClassifier(KNeighborsClassifier()).train(train_feats)
 
 
 def evaluation_sklearn_model(model, test_examples, test_labels):
@@ -245,10 +153,8 @@ def evaluation_sklearn_model(model, test_examples, test_labels):
     acc = accuracy_score(test_labels, y_pred)
     f = f1_score(test_labels, y_pred, average='macro')
 
-    print(f"Accuracy: {acc}")
-    print(f"Precision: {prec}\nRecall: {rec}\nF-score: {f}")
-    print("Confusion matrix:")
-    print(confusion_matrix(test_labels, y_pred))
+    print(f"Accuracy: {acc}\nPrecision: {prec}\nRecall: {rec}\nF-score: {f}")
+    print(f"Confusion matrix:\n{confusion_matrix(test_labels, y_pred)}")
 
 
 def main():
@@ -260,7 +166,7 @@ def main():
 
     # Set the second argument to True to load a cached version of the dataset,
     # for testing this is a lot faster.
-    dataset = create_dataset(file_path, True)
+    dataset = create_dataset(file_path)
     train_feats, test_feats, dev_feats = split_train_test(dataset)
 
     only_vec_train = [i['doc_vector'] for i in train_feats]
@@ -270,7 +176,7 @@ def main():
     only_label_test = [j['rating_label'] for j in test_feats]
 
     print('\n-- BASELINE --\n')
-    baseline = DummyClassifier()
+    baseline = DummyClassifier(strategy='most_frequent')
     baseline.fit(only_vec_train, only_label_train)
     evaluation_sklearn_model(baseline, only_vec_test, only_label_test)
 
@@ -288,16 +194,6 @@ def main():
     dtc = DecisionTreeClassifier()
     dtc.fit(only_vec_train, only_label_train)
     evaluation_sklearn_model(dtc, only_vec_test, only_label_test)
-
-    # First only use 'bag of words' as a feature
-    # only_bow_test = [item[1] for item in test_feats]
-    # only_bow_train = [item[1] for item in train_feats]
-
-    # svm_classifier = train_svm(only_bow_train)
-    # evaluation(svm_classifier, only_bow_test, LABELS)
-
-    # knn_classifier = train_knn(only_bow_train)
-    # evaluation(knn_classifier, only_bow_test, LABELS)
 
 
 if __name__ == "__main__":
